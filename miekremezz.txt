@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mie Kremezz Jump Adventure</title>
+  <meta property="og:title" content="Mie Kremezz Jump Adventure">
+  <meta property="og:description" content="Help the cute chicken collect noodles in this fun jumping game!">
+  <meta property="og:image" content="https://res.cloudinary.com/dimqqmfx6/image/upload/v1738991895/u0208051711_Ayam_occp1o.png">
+  <meta property="og:type" content="website">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="/chat/cdn/animate.min.css" rel="stylesheet">
+  <style>
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+    .float-animation {
+      animation: float 2s ease-in-out infinite;
+    }
+    .game-container {
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .noodle {
+      width: 40px;
+      height: 40px;
+      background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHBhdGggZD0iTTMyIDJDMTUuNDMzIDIgMiAxNS40MzMgMiAzMnMxMy40MzMgMzAgMzAgMzAgMzAtMTMuNDMzIDMwLTMwUzQ4LjU2NyAyIDMyIDJ6bTAgNTRDMTYuNTM2IDU2IDQgNDMuNDY0IDQgMjhTMTYuNTM2IDAgMzIgMHMyOCAxMi41MzYgMjggMjgtMTIuNTM2IDI4LTI4IDI4eiIgZmlsbD0iI2ZmZDcwMCIvPjwvc3ZnPg==');
+      background-size: contain;
+      background-repeat: no-repeat;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      animation: particle 0.5s ease-out forwards;
+    }
+    @keyframes particle {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+    .screen-shake {
+      animation: shake 0.1s ease-in-out;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+  </style>
+</head>
+<body class="bg-black h-screen flex flex-col items-center justify-center overflow-hidden">
+  <div id="start-screen" class="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+    <img src="https://res.cloudinary.com/dimqqmfx6/image/upload/v1739030554/u0208160231_LogoMiekremez_cmahge.png" 
+         alt="Mie Kremezz Logo" 
+         class="w-64 mb-8 float-animation">
+    <button id="start-btn" class="bg-yellow-400 text-black px-8 py-4 rounded-full text-2xl font-bold hover:bg-yellow-500 transition-colors shadow-lg animate__animated animate__pulse animate__infinite">
+      Start Game
+    </button>
+    <div class="mt-8 text-yellow-400 text-center">
+      <p class="mb-2">Controls:</p>
+      <p>🖱️ Click or SPACE to jump</p>
+      <p>💫 Double jump for extra height!</p>
+      <p>🍜 Collect noodles to score</p>
+    </div>
+  </div>
+
+  <div id="game-container" class="game-container hidden relative w-full h-screen bg-gradient-to-b from-black to-gray-900">
+    <div class="absolute top-4 left-4 bg-yellow-400/20 backdrop-blur-sm rounded-lg p-4">
+      <p class="text-2xl font-bold text-yellow-400">Score: <span id="score">0</span></p>
+      <p class="text-xl text-yellow-400">High Score: <span id="highScore">0</span></p>
+    </div>
+    
+    <img id="player" src="https://res.cloudinary.com/dimqqmfx6/image/upload/v1738991895/u0208051711_Ayam_occp1o.png" 
+         alt="Chicken" 
+         class="absolute w-16 h-16 transition-transform"
+         style="bottom: 20%; left: 50px;">
+    
+    <div id="obstacles"></div>
+    <div id="particles"></div>
+  </div>
+
+  <div id="game-over" class="hidden fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center">
+    <h2 class="text-4xl font-bold text-yellow-400 mb-4">Game Over!</h2>
+    <p class="text-2xl text-yellow-400 mb-8">Final Score: <span id="final-score">0</span></p>
+    <button id="restart-btn" class="bg-yellow-400 text-black px-8 py-4 rounded-full text-2xl font-bold hover:bg-yellow-500 transition-colors shadow-lg">
+      Play Again
+    </button>
+  </div>
+
+  <script>
+    let isPlaying = false;
+    let score = 0;
+    let highScore = localStorage.getItem('highScore') || 0;
+    let playerY = 0;
+    let velocity = 0;
+    let jumpsRemaining = 2;
+    let jumpCount = 0;
+    const gravity = 0.6;
+    const jumpForce = -15;
+    const jumpIncrement = 3;
+    const obstacles = [];
+    let animationFrame;
+    
+    const jumpSound = new Audio('https://cdn.simulationtheory.ai/gasset/?asset=sound&prompt=cute jump sound');
+    const collectSound = new Audio('https://cdn.simulationtheory.ai/gasset/?asset=sound&prompt=collect powerup happy');
+    const gameOverSound = new Audio('https://cdn.simulationtheory.ai/gasset/?asset=sound&prompt=game over cute');
+        
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+    document.getElementById('highScore').textContent = highScore;
+
+    function createParticles(x, y, color = '#FFD700') {
+      for (let i = 0; i < 8; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = `${x}px`;
+        particle.style.top = `${y}px`;
+        particle.style.width = '8px';
+        particle.style.height = '8px';
+        particle.style.backgroundColor = color;
+        particle.style.borderRadius = '50%';
+        const angle = (Math.PI * 2 * i) / 8;
+        const speed = 100;
+        particle.style.setProperty('--tx', `${Math.cos(angle) * speed}px`);
+        particle.style.setProperty('--ty', `${Math.sin(angle) * speed}px`);
+        document.getElementById('particles').appendChild(particle);
+        setTimeout(() => particle.remove(), 500);
+      }
+    }
+
+    function screenShake() {
+      const container = document.getElementById('game-container');
+      container.classList.add('screen-shake');
+      setTimeout(() => container.classList.remove('screen-shake'), 100);
+    }
+
+    function startGame() {
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('game-over').classList.add('hidden');
+      document.getElementById('game-container').classList.remove('hidden');
+      isPlaying = true;
+      score = 0;
+      playerY = 0;
+      velocity = 0;
+      jumpsRemaining = 2;
+      jumpCount = 0;
+      obstacles.length = 0;
+      document.getElementById('obstacles').innerHTML = '';
+      document.getElementById('score').textContent = score;
+      gameLoop();
+    }
+        
+    function gameOver() {
+      isPlaying = false;
+      gameOverSound.play();
+      document.getElementById('final-score').textContent = score;
+      document.getElementById('game-over').classList.remove('hidden');
+      cancelAnimationFrame(animationFrame);
+    }
+    
+    function jump() {
+      if (jumpsRemaining > 0) {
+        const currentJumpForce = jumpForce - (jumpCount * jumpIncrement);
+        velocity = currentJumpForce;
+        jumpCount++;
+        jumpsRemaining--;
+        jumpSound.currentTime = 0;
+        jumpSound.play();
+        createParticles(
+          document.getElementById('player').offsetLeft,
+          document.getElementById('player').offsetTop + 50,
+          '#FFD700'
+        );
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        jump();
+      }
+    });
+
+    document.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      jump();
+    });
+
+    document.addEventListener('click', jump);
+
+    function createObstacle() {
+      const obstacle = document.createElement('div');
+      obstacle.className = 'absolute noodle';
+      obstacle.style.left = '100%';
+      obstacle.style.bottom = `${Math.random() * 60 + 20}%`;
+      document.getElementById('obstacles').appendChild(obstacle);
+      obstacles.push({
+        element: obstacle,
+        x: 100,
+        collected: false
+      });
+    }
+
+    function gameLoop() {
+      if (!isPlaying) return;
+
+      velocity += gravity;
+      playerY += velocity;
+
+      if (playerY > 0) {
+        playerY = 0;
+        velocity = 0;
+        jumpsRemaining = 2;
+        jumpCount = 0;
+      }
+
+      const player = document.getElementById('player');
+      player.style.transform = `translateY(${playerY}px) rotate(${velocity * 2}deg)`;
+
+      if (Math.random() < 0.02) {
+        createObstacle();
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obstacle = obstacles[i];
+        obstacle.x -= 2;
+        obstacle.element.style.left = `${obstacle.x}%`;
+
+        const playerRect = player.getBoundingClientRect();
+        const obstacleRect = obstacle.element.getBoundingClientRect();
+
+        if (!obstacle.collected && 
+            playerRect.right > obstacleRect.left && 
+            playerRect.left < obstacleRect.right &&
+            playerRect.bottom > obstacleRect.top && 
+            playerRect.top < obstacleRect.bottom) {
+          obstacle.collected = true;
+          obstacle.element.style.opacity = '0';
+          score++;
+          document.getElementById('score').textContent = score;
+          if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('highScore', highScore);
+            document.getElementById('highScore').textContent = highScore;
+          }
+          collectSound.currentTime = 0;
+          collectSound.play();
+          createParticles(obstacleRect.left, obstacleRect.top);
+          screenShake();
+        }
+
+        if (obstacle.x < -10) {
+          obstacle.element.remove();
+          obstacles.splice(i, 1);
+        }
+      }
+
+      animationFrame = requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
