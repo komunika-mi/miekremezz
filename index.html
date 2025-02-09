@@ -24,17 +24,18 @@
       user-select: none;
       -webkit-user-select: none;
     }
+    /* Updated collectible style: twice the size with a gentle pulse animation */
     .noodle {
-      width: 40px;
-      height: 40px;
-      background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHBhdGggZD0iTTMyIDJDMTUuNDMzIDIgMiAxNS40MzMgMiAzMnMxMy40MzMgMzAgMzAgMzAgMzAtMTMuNDMzIDMwLTMwUzQ4LjU2NyAyIDMyIDJ6bTAgNTRDMTYuNTM2IDU2IDQgNDMuNDY0IDQgMjhTMTYuNTM2IDAgMzIgMHMyOCAxMi41MzYgMjggMjgtMTIuNTM2IDI4LTI4IDI4eiIgZmlsbD0iI2ZmZDcwMCIvPjwvc3ZnPg==');
+      width: 80px;
+      height: 80px;
+      background-image: url('https://res.cloudinary.com/dtnxertxv/image/upload/v1739117576/Untitled_design_42_hkvlik.png');
       background-size: contain;
       background-repeat: no-repeat;
-      animation: spin 2s linear infinite;
+      animation: pulse 2s infinite ease-in-out;
     }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
     }
     .particle {
       position: absolute;
@@ -66,7 +67,7 @@
   <div id="start-screen" class="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
     <img src="https://res.cloudinary.com/dimqqmfx6/image/upload/v1739030554/u0208160231_LogoMiekremez_cmahge.png" 
          alt="Mie Kremezz Logo" 
-         class="w-64 mb-8 float-animation">
+         class="w-96 mb-8 float-animation">
     <button id="start-btn" class="bg-yellow-400 text-black px-8 py-4 rounded-full text-2xl font-bold hover:bg-yellow-500 transition-colors shadow-lg animate__animated animate__pulse animate__infinite">
       Start Game
     </button>
@@ -80,14 +81,22 @@
 
   <!-- Game Container -->
   <div id="game-container" class="game-container hidden relative w-full h-screen bg-gradient-to-b from-black to-gray-900">
+    <!-- Score Panel -->
     <div class="absolute top-4 left-4 bg-yellow-400/20 backdrop-blur-sm rounded-lg p-4">
       <p class="text-2xl font-bold text-yellow-400">Score: <span id="score">0</span></p>
       <p class="text-xl text-yellow-400">High Score: <span id="highScore">0</span></p>
+      <p class="text-xl text-yellow-400">Time Left: <span id="timeLeft">60</span> sec</p>
     </div>
     
+    <!-- Background Logo (Small) -->
+    <img src="https://res.cloudinary.com/dtnxertxv/image/upload/v1739111426/Logo_Mie_kremez_p6k5gx.png" 
+         alt="Mie Kremezz Logo" 
+         class="absolute top-4 right-4 w-64 opacity-75">
+    
+    <!-- Player -->
     <img id="player" src="https://res.cloudinary.com/dimqqmfx6/image/upload/v1738991895/u0208051711_Ayam_occp1o.png" 
          alt="Chicken" 
-         class="absolute w-16 h-16 transition-transform"
+         class="absolute w-24 h-24 transition-transform"
          style="bottom: 20%; left: 50px;">
     
     <div id="obstacles"></div>
@@ -109,16 +118,20 @@
     let highScore = localStorage.getItem('highScore') || 0;
     let playerY = 0;
     let velocity = 0;
-    let jumpsRemaining = 2;
+    let jumpsRemaining = 3;
     let jumpCount = 0;
     const gravity = 0.6;
     
-    // Updated jump parameters for higher jumps
-    const jumpForce = -20;       // More upward force on the first jump
-    const jumpIncrement = 5;     // Additional force for each consecutive jump
+    // Jump parameters for higher jumps
+    const jumpForce = -20;
+    const jumpIncrement = 5;
     
     const obstacles = [];
     let animationFrame;
+    
+    // Timer variables for the 60-second countdown
+    let timeLeft = 60;
+    let timerInterval;
     
     const jumpSound = new Audio('https://cdn.simulationtheory.ai/gasset/?asset=sound&prompt=cute jump sound');
     const collectSound = new Audio('https://cdn.simulationtheory.ai/gasset/?asset=sound&prompt=collect powerup happy');
@@ -154,9 +167,12 @@
     }
     
     function startGame() {
+      // Reset and display the appropriate screens
       document.getElementById('start-screen').classList.add('hidden');
       document.getElementById('game-over').classList.add('hidden');
       document.getElementById('game-container').classList.remove('hidden');
+      
+      // Reset game variables
       isPlaying = true;
       score = 0;
       playerY = 0;
@@ -166,18 +182,33 @@
       obstacles.length = 0;
       document.getElementById('obstacles').innerHTML = '';
       document.getElementById('score').textContent = score;
+      
+      // Reset and start the 60-second countdown timer
+      timeLeft = 60;
+      document.getElementById('timeLeft').textContent = timeLeft;
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timeLeft').textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          gameOver();
+        }
+      }, 1000);
+      
       gameLoop();
     }
     
     function gameOver() {
       isPlaying = false;
+      clearInterval(timerInterval);
       gameOverSound.play();
       document.getElementById('final-score').textContent = score;
       document.getElementById('game-over').classList.remove('hidden');
       cancelAnimationFrame(animationFrame);
     }
     
-    // Each press of SPACE (or a click/touch) will now give a higher jump.
+    // Jump function triggered by key, click, or touch
     function jump() {
       if (jumpsRemaining > 0) {
         const currentJumpForce = jumpForce - (jumpCount * jumpIncrement);
@@ -242,9 +273,10 @@
         createObstacle();
       }
     
+      // Update each collectible's position (reduced speed by 1/3)
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obstacle = obstacles[i];
-        obstacle.x -= 2;
+        obstacle.x -= 2 / 3;
         obstacle.element.style.left = `${obstacle.x}%`;
     
         const playerRect = player.getBoundingClientRect();
