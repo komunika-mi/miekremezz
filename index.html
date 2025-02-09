@@ -112,8 +112,11 @@
     let jumpsRemaining = 2;
     let jumpCount = 0;
     const gravity = 0.6;
-    const jumpForce = -15;
-    const jumpIncrement = 3;
+    
+    // Updated jump parameters for higher jumps
+    const jumpForce = -20;       // More upward force on the first jump
+    const jumpIncrement = 5;     // Additional force for each consecutive jump
+    
     const obstacles = [];
     let animationFrame;
     
@@ -174,6 +177,7 @@
       cancelAnimationFrame(animationFrame);
     }
     
+    // Each press of SPACE (or a click/touch) will now give a higher jump.
     function jump() {
       if (jumpsRemaining > 0) {
         const currentJumpForce = jumpForce - (jumpCount * jumpIncrement);
@@ -226,6 +230,7 @@
       if (playerY > 0) {
         playerY = 0;
         velocity = 0;
+        // Reset jump count and allow jumping again after landing.
         jumpsRemaining = 2;
         jumpCount = 0;
       }
